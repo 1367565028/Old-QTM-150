@@ -1,0 +1,209 @@
+---
+title: "Dog Data Analyze"
+format: pdf
+editor: visual
+author: "Smart Chen, Stephen Jin, Michael Zhao, Sammi Mi"
+---
+
+# Introduction
+
+In this project, we aim to analyze and explore the characteristics of a dataset containing information about dogs, which comes from a short survey produces crowd-sourced data. By leveraging data exploration, cleaning, and transformation techniques, as well as visualizations, we intend to derive meaningful insights regarding various aspects of dogs such as age, gender, size, color, and heritage.
+
+# Load Packages and Data
+
+We're using the `dog.csv` data from https://leannecpowner.com/pages/dogsdata.html. We first load the packages needed and then read the dataset from local computer.
+
+```{r}
+pacman::p_load(tidyverse, readr, knitr, janitor, dplyr)
+
+dogs = read_csv("./dogs.csv")
+```
+
+# Data Exploration
+
+## Quick Skim of `dogs`
+
+Explore the data a little bit. The basic structure and content of the dataset are as follows.
+
+```{r}
+head(dogs)
+```
+
+```{r}
+str(dogs)
+```
+
+```{r}
+summary(dogs)
+```
+
+From this we can see that `dog.csv` is a dataset containing basic info about 454 dogs. One variable represents one feature of a god and one observation represents a dog. There are variables such as, `Age`, `Name`, `Gender`, `Fixed`, `Color`, and `Heritage`. The maximum `Age` for the dogs is 18 and the minimum is 0.25. The largest `Weight` for the dogs is 178 pounds, and the minimum is 1.5 pound.
+
+## Variable Dictionary
+
+`Obs`(numeric) – unique observation number for case identification
+
+`Name`(character) – dog’s name as provided by the owner (excess text removed)
+
+`Gender`(character) – {male, female} closed choice
+
+`Fixed`(character) – “yes” if spayed or neutered, as appropriate; “no” if not
+
+`Color`(character) – respondents selected one from {light brown, dark brown, black, white, reddish, yellow/blond, no primary color, other}. Other was not an open-ended response.
+
+`Heritage`(character) – 1 = single breed, 2 = designer/deliberate mix, 3 = mixed/unknown
+
+`Age`(numeric) – age in years, as provided by owner; converted if provided in months or fractions of a year.
+
+`Weight`(numeric) – approximate weight in pounds, as reported by owner, To convert to kilos, divide by 2.2.
+
+`Size`(character) – Toy, Small, Medium, Large, Humongous
+
+# Data Cleaning
+
+Before we use the data, we want to make some changes so that the data can be easier to use.
+
+## Assign Names
+
+Some of our dog's `Name` is missing, and it is showing as `NA`. We would like to assign "No Name" to `Names` for the observations without a name. With this step, when we are trying to show the information of a dog, we can refer it by it's name instead of `NA`.
+
+```{r}
+dogs$Name[is.na(dogs$Name)] <- "No Name"
+```
+
+## Factorize Variable
+
+`Size` are imported as characters but we want it to be and it should be ordered factors.To order these factors, we would use the function `factor()`, and transform the `Size` column of the dogs dataset into an ordered factor with specified levels.
+
+```{r}
+dogs$Size <- factor(dogs$Size, levels = c("Toy", "Small", "Medium", "Large", "Humungous"), ordered = TRUE)
+```
+
+## Remove Uneccessay Information
+
+There are some unnecessary information in `Heritage`, we would like to get rid of them.
+
+First, we would create the regex pattern to match text within parentheses.
+
+```{r}
+pattern <- "\\(.*?\\)"
+```
+
+Next we remove the matched text from the 'Heritage' column.
+
+```{r}
+dogs <- dogs %>%
+  mutate(Heritage = str_remove_all(Heritage, pattern))
+```
+
+## Remove Duplicate Data
+
+Here, we check for duplicates and remove if any.
+
+```{r}
+get_dupes(dogs)
+dogs <- distinct(dogs)
+```
+
+Here, the data cleaning process is complete.
+
+```{r}
+dogs
+```
+
+# Data Transformation
+
+## Mutate
+
+Here, we would like to change the unit of dogs' weight to kilograms, which is the international metric and is easier for us, as international students, to understand. We use the function`mutate()` to change its values.
+
+```{r}
+dogs$Weight <- dogs$Weight * 0.453592
+```
+
+## Sorting
+
+Sort the data by `Heritage` and `Size`.
+
+```{r}
+dogs <- dogs %>%
+  arrange(Heritage, Size)
+```
+
+## Summary Table
+
+Here, we create a summary table of mean age and number of observations grouped by `Size` of the dogs.
+
+```{r}
+dogs |>
+  group_by(Size) |>
+  summarize(
+    mean_age = mean(Age, na.rm = TRUE),
+    n_dogs = n()
+  )
+```
+
+# Research Questions
+
+## `Color` Distribution for Each `Heritage`
+
+The first research question discusses the `color` distribution for each `Heritage` of dog. We first group the data by `Heritage` and then use a pie chart to illustrate the distribution clearly.
+
+```{r}
+# Select part of the data
+tempDogs <- dogs %>%
+  select(Name, Heritage, Color) 
+tempDogs
+```
+
+```{r}
+# Group and mutate data
+dogsbyproportions <- tempDogs %>%
+  count(Heritage, Color) %>%
+  group_by(Heritage) %>%
+  mutate(Proportion = n / sum(n))
+dogsbyproportions
+```
+
+```{r}
+ggplot(dogsbyproportions, aes(x = Heritage, y = Proportion, fill = Color)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Heritage", y = "Proportion", fill = "Color") +
+  ggtitle("Color Distribution by Heritage") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+### Observation And Analyze
+
+Overall, the graph suggests that mixed breeds have a higher tendency towards darker colors (black and dark brown), while designer breeds show a more diverse palette, likely due to selective breeding for aesthetic traits. Single breeds have more uniformity in color distribution, reflecting the standardized appearance that breed standards often dictate.
+
+The color distribution across dog heritages could be influenced by several factors:
+
+1.  **Genetic Dominance:** Darker colors like black and dark brown might be more common in mixed breeds due to the genetic dominance of these colors. These colors often dominate when different breeds are crossed, whereas lighter colors like yellow/blond might be recessive and less likely to appear without careful selective breeding.
+
+2.  **Selective Breeding:** Designer breeds are often bred for unique and specific aesthetic traits, including coat color. Breeders might aim for rarity or particular patterns that are fashionable, which can explain the greater variety in the "No primary color" and "Other" categories for designer/deliberate mixes.
+
+## Relationship between `Weight` and `Age`, Grouped by `Size`
+
+Here are discuss relationship between weight and age, grouped by `Size`, which are stated as,`Toy`, `Small`, `Medium`, `Large`, `Humungous`. Here, we would use the line chart to show the relationship.
+
+```{r}
+# Filter na values
+dogs = filter(dogs, !is.na(Size))
+dogs = filter(dogs, !is.na(Weight))
+```
+
+```{r}
+dogs |>
+  ggplot(mapping = aes(x = Age, y = Weight)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    facet_wrap(~ Size, nrow = 2)
+```
+
+### Observations
+
+For medium, small, and toy size dogs, there seems to be little correlation between age and weight. However, we have observed obvious correlations for humongous and large size dogs. To be specific, there is a negative association between age and weight for humongous dogs, while there is a positive association between age and weight for large dogs.
+
+The likely explanation would be that since bigger dogs have greater weight baselines, they are more likely to experience weight changes throughout lifetime. For humoungous dogs, they generally experience weight losses as they age. This is likely because they are so huge that it costs so much energy to sustain the weight. However, for large dogs, they generally experience weight gains. This is likely because they become less able to move and exercise as they age.
